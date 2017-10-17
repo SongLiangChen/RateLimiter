@@ -1,4 +1,4 @@
-package ratelimiter
+package RateLimiter
 
 import (
 	"sync"
