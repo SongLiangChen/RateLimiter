@@ -1,13 +1,15 @@
 # RateLimiter
-基于Token Bucket算法实现的api限流模块
+# 基于Token Bucket算法实现的api限流模块
 
-目前该版本对同一条uri，只能设置一中策略：某个时间段D内，允许某个用户访问N次。
+目前该版本对同一条uri，只能设置一种策略：某个时间段D内，允许某个用户访问N次。
 
 使用：
+
 go get github.com/SongLiangChen/RateLimiter
 
 
 示例：
+```
 package main
 
 import (
@@ -52,3 +54,4 @@ func main() {
 
 	http.ListenAndServe(":8080", nil)
 }
+```
