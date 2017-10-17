@@ -1,4 +1,4 @@
-package RateLimiter
+package ratelimiter
 
 import (
 	"sync"
@@ -17,7 +17,7 @@ type Bucket struct {
 	LastSyncTime int64
 }
 
-func (b *Bucket) resync(c *Config) int32 {
+func (b *Bucket) resync(c *Rule) int32 {
 	now := time.Now().UnixNano()
 	remain := atomic.LoadInt32(&b.TokenRemain)
 	lasttime := atomic.LoadInt64(&b.LastSyncTime)
@@ -49,41 +49,58 @@ func (b *Bucket) resync(c *Config) int32 {
 	return ret
 }
 
-// The config of one uri. the same user can just access this uri 'Limit' times in 'Durantion' time
-type Config struct {
+// The Rule of one uri. the same user can just access this uri 'Limit' times in 'Durantion' time
+type Rule struct {
 	Limit    int32
 	Duration int32 // Units per second
 }
 
+type Rules map[string][]*Rule
+
+func (rules Rules) AddRule(path string, rule *Rule) {
+	if _, ok := rules[path]; !ok {
+		rules[path] = make([]*Rule, 0)
+	}
+
+	rules[path] = append(rules[path], rule)
+}
+
+func NewRules() Rules {
+	return make(Rules)
+}
+
 type RateLimiter struct {
-	// Filiter store the status of access for every user
-	Filiter map[int]map[string]*Bucket
-	// Path'key is the uri that need frequency verification, and the Path'value is the config of uri(see Config struct)
-	Path map[string]*Config
+	// filiter store the status of access for every user
+	filiter map[int]map[string][]*Bucket
+	// rules'key is the uri that need frequency verification, and the rules'value is the Rules of uri(see Rule struct)
+	rules Rules
 
 	sync.RWMutex
 }
 
-func (r *RateLimiter) init(p map[string]*Config) {
-	for pp, c := range p {
-		r.Path[pp] = c
-	}
+func (r *RateLimiter) init(rules Rules) {
+	r.rules = rules
 }
 
-func (r *RateLimiter) getBucket(uid int, path string) *Bucket {
-	var b map[string]*Bucket
+func (r *RateLimiter) getBuckets(uid int, path string) []*Bucket {
+	var b map[string][]*Bucket
 	var ok bool
 
 	r.RLock()
-	if b, ok = r.Filiter[uid]; !ok {
+	if b, ok = r.filiter[uid]; !ok {
 		r.RUnlock()
 
 		r.Lock()
-		r.Filiter[uid] = make(map[string]*Bucket)
-		for p, _ := range r.Path {
-			r.Filiter[uid][p] = new(Bucket)
+		r.filiter[uid] = make(map[string][]*Bucket)
+
+		for path, rs := range r.rules {
+			r.filiter[uid][path] = make([]*Bucket, 0)
+			for i := 0; i < len(rs); i++ {
+				r.filiter[uid][path] = append(r.filiter[uid][path], new(Bucket))
+			}
 		}
-		b = r.Filiter[uid]
+
+		b = r.filiter[uid]
 		r.Unlock()
 
 	} else {
@@ -94,24 +111,25 @@ func (r *RateLimiter) getBucket(uid int, path string) *Bucket {
 }
 
 func (r *RateLimiter) takeAccess(uid int, path string) bool {
-	if _, ok := r.Path[path]; !ok {
+	if _, ok := r.rules[path]; !ok {
 		return true
 	}
 
-	b := r.getBucket(uid, path)
+	bs := r.getBuckets(uid, path)
 
-	ac := b.resync(r.Path[path])
-	if ac > 0 {
-		return true
+	for i, b := range bs {
+		if b.resync(r.rules[path][i]) <= 0 {
+			return false
+		}
 	}
 
-	return false
+	return true
 }
 
 func newRateLimiter() *RateLimiter {
 	r := new(RateLimiter)
-	r.Filiter = make(map[int]map[string]*Bucket)
-	r.Path = make(map[string]*Config)
+	r.filiter = make(map[int]map[string][]*Bucket)
+	r.rules = make(map[string][]*Rule)
 	return r
 }
 
@@ -122,8 +140,8 @@ func init() {
 	rlt = newRateLimiter()
 }
 
-func InitRateLimiter(p map[string]*Config) {
-	rlt.init(p)
+func InitRateLimiter(rules Rules) {
+	rlt.init(rules)
 }
 
 func TakeAccess(uid int, path string) bool {
