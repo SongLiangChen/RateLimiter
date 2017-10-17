@@ -1,11 +1,8 @@
 # RateLimiter
 # 基于Token Bucket算法实现的api限流模块
 
-目前该版本对同一条uri，只能设置一种策略：某个时间段D内，允许某个用户访问N次。
-
-使用：
-
-go get github.com/SongLiangChen/RateLimiter
+# 功能：
+1、可以针对某个uri自定义各种限流规则，例如：规定 10 秒内，用户的请求次数不能超过 200 次；而且，1 小时内，用户的请求次数不能超过 5000 次；并且，1 天内， 用户的请求次数不能超过 20000 次
 
 
 示例：
@@ -14,44 +11,96 @@ package main
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/SongLiangChen/RateLimiter"
 )
 
 func main() {
-	access_config := make(map[string]*RateLimiter.Config)
+	rules := RateLimiter.NewRules()
+	// 规定任何用户1s内只允许访问5次
+	rules.AddRule("/test", &RateLimiter.Rule{
+		Duration: 1,
+		Limit:    5,
+	})
+	// 同时规定任何用户10s内只能访问10次
+	rules.AddRule("/test", &RateLimiter.Rule{
+		Duration: 10,
+		Limit:    5,
+	})
 
-	// 对test 配置60秒内只允许访问100次
-	access_config["test"] = &RateLimiter.Config{
-		Duration: 60,
-		Limit:    100,
-	}
-
-	// 对test/abc 配置一小时内允许访问10次
-	access_config["test/abc"] = &RateLimiter.Config{
-		Duration: 3600,
-		Limit:    10,
-	}
-
-	RateLimiter.InitRateLimiter(access_config)
+	RateLimiter.InitRateLimiter(rules)
 
 	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
-		uid, _ := strconv.Atoi(r.FormValue("uid"))
-		if !RateLimiter.TakeAccess(uid, "/test") {
+		if !RateLimiter.TakeAccess(r.FormValue("uid"), "/test") {
 			w.Write([]byte("请求太频繁"))
+			return
 		}
-	})
 
-	http.HandleFunc("/test/abc", func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
-		uid, _ := strconv.Atoi(r.FormValue("uid"))
-		if !RateLimiter.TakeAccess(uid, "/test/abc") {
-			w.Write([]byte("请求太频繁"))
-		}
+		// ...do your work
 	})
 
 	http.ListenAndServe(":8080", nil)
 }
+
+```
+
+
+2、可以即针对某个uri设置限流规则，同时可以为全局uri设置限流规则
+
+示例
+```
+package main
+
+import (
+	"net/http"
+
+	"github.com/SongLiangChen/RateLimiter"
+)
+
+func main() {
+	rules := RateLimiter.NewRules()
+	// 规定任何用户1s内只允许访问5次/test1
+	rules.AddRule("/test1", &RateLimiter.Rule{
+		Duration: 1,
+		Limit:    5,
+	})
+	// 同时规定任何用户10s内只能访问10次/test2
+	rules.AddRule("/test2", &RateLimiter.Rule{
+		Duration: 10,
+		Limit:    5,
+	})
+	// 并且规定对任何uri的访问，60s内只能访问10次
+	rules.AddRule("", &RateLimiter.Rule{
+		Duration: 60,
+		Limit:    10,
+	})
+
+	RateLimiter.InitRateLimiter(rules)
+
+	http.HandleFunc("/test1", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		uid := r.FormValue("uid")
+		if !RateLimiter.TakeAccess(uid, "/test1") || !RateLimiter.TakeAccess(uid, "") {
+			w.Write([]byte("请求太频繁"))
+			return
+		}
+
+		// ...do your work
+	})
+
+	http.HandleFunc("/test2", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		uid := r.FormValue("uid")
+		if !RateLimiter.TakeAccess(uid, "/test2") || !RateLimiter.TakeAccess(uid, "") {
+			w.Write([]byte("请求太频繁"))
+			return
+		}
+
+		// ...do your work
+	})
+
+	http.ListenAndServe(":8080", nil)
+}
+
 ```
