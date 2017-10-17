@@ -71,7 +71,7 @@ func NewRules() Rules {
 
 type RateLimiter struct {
 	// filiter store the status of access for every user
-	filiter map[int]map[string][]*Bucket
+	filiter map[string]map[string][]*Bucket
 	// rules'key is the uri that need frequency verification, and the rules'value is the Rules of uri(see Rule struct)
 	rules Rules
 
@@ -82,7 +82,7 @@ func (r *RateLimiter) init(rules Rules) {
 	r.rules = rules
 }
 
-func (r *RateLimiter) getBuckets(uid int, path string) []*Bucket {
+func (r *RateLimiter) getBuckets(uid string, path string) []*Bucket {
 	var b map[string][]*Bucket
 	var ok bool
 
@@ -110,7 +110,7 @@ func (r *RateLimiter) getBuckets(uid int, path string) []*Bucket {
 	return b[path]
 }
 
-func (r *RateLimiter) takeAccess(uid int, path string) bool {
+func (r *RateLimiter) takeAccess(uid string, path string) bool {
 	if _, ok := r.rules[path]; !ok {
 		return true
 	}
@@ -128,7 +128,7 @@ func (r *RateLimiter) takeAccess(uid int, path string) bool {
 
 func newRateLimiter() *RateLimiter {
 	r := new(RateLimiter)
-	r.filiter = make(map[int]map[string][]*Bucket)
+	r.filiter = make(map[string]map[string][]*Bucket)
 	r.rules = make(map[string][]*Rule)
 	return r
 }
@@ -144,6 +144,6 @@ func InitRateLimiter(rules Rules) {
 	rlt.init(rules)
 }
 
-func TakeAccess(uid int, path string) bool {
+func TakeAccess(uid string, path string) bool {
 	return rlt.takeAccess(uid, path)
 }
