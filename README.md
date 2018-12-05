@@ -29,11 +29,11 @@ func main() {
 	})
 
 	r, _ := RateLimiter.NewRateLimiter("momory")
-    r.InitRules(rules)
+    	r.InitRules(rules)
     
-    // redis
-    // r, _ := RateLimiter.NewRateLimiter("redis")
-    // r.InitRules(rules, "127.0.0.1:6379", "", "0", "10", "20")
+    	// redis
+    	// r, _ := RateLimiter.NewRateLimiter("redis")
+    	// r.InitRules(rules, "127.0.0.1:6379", "", "0", "10", "20")
     
 	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
@@ -82,11 +82,11 @@ func main() {
 	})
 
 	r, _ := RateLimiter.NewRateLimiter("momory")
-    r.InitRules(rules)
+    	r.InitRules(rules)
     
-    // redis
-    // r, _ := RateLimiter.NewRateLimiter("redis")
-    // r.InitRules(rules, "127.0.0.1:6379", "", "0", "10", "20")
+    	// redis
+    	// r, _ := RateLimiter.NewRateLimiter("redis")
+    	// r.InitRules(rules, "127.0.0.1:6379", "", "0", "10", "20")
 
 	http.HandleFunc("/test1", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
