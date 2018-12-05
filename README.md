@@ -91,7 +91,7 @@ func main() {
 	http.HandleFunc("/test1", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		uid := r.FormValue("uid")
-		if !RateLimiter.TakeAccess(uid, "/test1") || !RateLimiter.TakeAccess(uid, "") {
+		if !RateLimiter.TokenAccess(uid, "/test1") || !RateLimiter.TokenAccess(uid, "") {
 			w.Write([]byte("请求太频繁"))
 			return
 		}
@@ -102,7 +102,7 @@ func main() {
 	http.HandleFunc("/test2", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		uid := r.FormValue("uid")
-		if !RateLimiter.TakeAccess(uid, "/test2") || !RateLimiter.TakeAccess(uid, "") {
+		if !RateLimiter.TokenAccess(uid, "/test2") || !RateLimiter.TokenAccess(uid, "") {
 			w.Write([]byte("请求太频繁"))
 			return
 		}
