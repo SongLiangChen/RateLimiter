@@ -34,6 +34,10 @@ func (r *MemRateLimiter) TokenAccess(sessionId string, accessKey string) bool {
 	return true
 }
 
+func (r *MemRateLimiter) TokenAccessWithRules(sessionId, accessKey string, rule ...Rule) bool {
+	return true
+}
+
 func (r *MemRateLimiter) getBuckets(sessionId string, accessKey string) []*Bucket {
 	var b map[string][]*Bucket
 	var ok bool

@@ -3,6 +3,7 @@ package RateLimiter
 type RateLimiter interface {
 	InitRules(rules Rules, cnf ...string) error
 	TokenAccess(sessionId string, accessKey string) bool
+	TokenAccessWithRules(sessionId, accessKey string, rule ...Rule) bool
 }
 
 var (

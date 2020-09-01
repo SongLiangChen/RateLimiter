@@ -144,6 +144,17 @@ func (r *RedisRateLimiter) TokenAccess(sessionId string, accessKey string) bool 
 	return r.tokenAccess(key, tmp...)
 }
 
+func (r *RedisRateLimiter) TokenAccessWithRules(sessionId, accessKey string, rules ...Rule) bool {
+	key := sessionId + accessKey
+
+	tmp := make([]interface{}, 0)
+	for _, rule := range rules {
+		tmp = append(tmp, rule.Duration)
+		tmp = append(tmp, rule.Limit)
+	}
+	return r.tokenAccess(key, tmp...)
+}
+
 func (r *RedisRateLimiter) tokenAccess(key string, rules ...interface{}) bool {
 	keys := []string{key, strconv.FormatInt(time.Now().UnixNano(), 10), strconv.Itoa(len(rules))}
 
