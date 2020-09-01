@@ -1,4 +1,4 @@
-module github.com:SongLiangChen/RateLimiter
+module github.com/SongLiangChen/RateLimiter
 
 go 1.12
 
