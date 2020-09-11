@@ -1,6 +1,7 @@
 package RateLimiter
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -19,35 +20,31 @@ import (
 //
 // 返回1表示成功、返回0表示失败
 var luaScript = `
-local time_now = tonumber(KEYS[2])
-local N = tonumber(KEYS[3])
-local keys = {}
+local time_now = tonumber(KEYS[1])
+local N = tonumber(KEYS[2])
 local remains = {}
 local lastTimes = {}
 local durations = {}
 local limits = {}
 
--- 将所有规则整理出来，包括key，duration和limit
 local j = 1
-for i=4, N+2, 2 do
-	durations[j] = tonumber(KEYS[i])
-	limits[j] = tonumber(KEYS[i+1])
-	keys[j] = KEYS[1]..durations[j]..limits[j]
+for i=3, N*3+2, 3 do
+	durations[j] = tonumber(KEYS[i+1])
+	limits[j] = tonumber(KEYS[i+2])
 	j = j+1
 end
-
 j = j-1
 
 -- 遍历每一条规则，判断是否还有token剩余，是否满足重新补充的条件
-for i=1, j, 1 do
-	local ratelimit_info=redis.pcall("HMGET",keys[i],"remain_token","last_fill_time")
+for i=1, N, 1 do
+	local ratelimit_info=redis.pcall("HMGET",KEYS[i*3],"remain_token","last_fill_time")
 	remains[i] = tonumber(ratelimit_info[1])
 	lastTimes[i] = tonumber(ratelimit_info[2])
 
 	-- 之前不存在，创建，并设置过期为一小时
 	if (lastTimes[i]==nil) then
-    	redis.call("HMSET",keys[i],"remain_token",limits[i],"last_fill_time",time_now)
-    	redis.call("EXPIRE", keys[i], 3600)
+    	redis.call("HMSET",KEYS[i*3],"remain_token",limits[i],"last_fill_time",time_now)
+    	redis.call("EXPIRE", KEYS[i*3], 3600)
     	lastTimes[i] = time_now
     	remains[i] = limits[i]
 	end
@@ -72,8 +69,8 @@ for i=1, j, 1 do
 end
 
 -- 对每一条规则减去一个token，并返回成功
-for i=1, j, 1 do
-	redis.pcall("HMSET", keys[i],"remain_token",remains[i]-1,"last_fill_time",lastTimes[i])
+for i=1, N, 1 do
+	redis.pcall("HMSET", KEYS[i*3],"remain_token",remains[i]-1,"last_fill_time",lastTimes[i])
 end
 
 return 1
@@ -136,27 +133,29 @@ func (r *RedisRateLimiter) TokenAccess(sessionId string, accessKey string) bool 
 
 	key := sessionId + accessKey
 
-	tmp := make([]string, 0)
+	keys := make([]string, 0)
 	for _, rule := range rules {
-		tmp = append(tmp, strconv.Itoa(int(rule.Duration)))
-		tmp = append(tmp, strconv.Itoa(int(rule.Limit)))
+		keys = append(keys, fmt.Sprintf("%v%v%v", key, rule.Duration, rule.Limit))
+		keys = append(keys, strconv.Itoa(int(rule.Duration)))
+		keys = append(keys, strconv.Itoa(int(rule.Limit)))
 	}
-	return r.tokenAccess(key, tmp...)
+	return r.tokenAccess(keys)
 }
 
 func (r *RedisRateLimiter) TokenAccessWithRules(sessionId, accessKey string, rules ...Rule) bool {
 	key := sessionId + accessKey
 
-	tmp := make([]string, 0)
+	keys := make([]string, 0)
 	for _, rule := range rules {
-		tmp = append(tmp, strconv.Itoa(int(rule.Duration)))
-		tmp = append(tmp, strconv.Itoa(int(rule.Limit)))
+		keys = append(keys, fmt.Sprintf("%v%v%v", key, rule.Duration, rule.Limit))
+		keys = append(keys, strconv.Itoa(int(rule.Duration)))
+		keys = append(keys, strconv.Itoa(int(rule.Limit)))
 	}
-	return r.tokenAccess(key, tmp...)
+	return r.tokenAccess(keys)
 }
 
-func (r *RedisRateLimiter) tokenAccess(key string, rules ...string) bool {
-	keys := []string{key, strconv.FormatInt(time.Now().UnixNano(), 10), strconv.Itoa(len(rules))}
+func (r *RedisRateLimiter) tokenAccess(rules []string) bool {
+	keys := []string{strconv.FormatInt(time.Now().UnixNano(), 10), strconv.Itoa(len(rules) / 3)}
 	keys = append(keys, rules...)
 	val, err := r.conn.EvalSha(r.scriptSha, keys).Int()
 	if err != nil {

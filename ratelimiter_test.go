@@ -27,4 +27,7 @@ func Test_RateLimiter(t *testing.T) {
 
 	time.Sleep(time.Second * 2)
 	t.Log(r.TokenAccess("a", "abc"))
+	t.Log(r.TokenAccess("a", "abc"))
+	t.Log(r.TokenAccess("a", "abc"))
+	t.Log(r.TokenAccess("a", "abc"))
 }
