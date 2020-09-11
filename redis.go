@@ -29,9 +29,9 @@ local limits = {}
 
 -- 将所有规则整理出来，包括key，duration和limit
 local j = 1
-for i=1, N-1, 2 do
-	durations[j] = tonumber(ARGV[i])
-	limits[j] = tonumber(ARGV[i+1])
+for i=4, N+2, 2 do
+	durations[j] = tonumber(KEYS[i])
+	limits[j] = tonumber(KEYS[i+1])
 	keys[j] = KEYS[1]..durations[j]..limits[j]
 	j = j+1
 end
@@ -136,10 +136,10 @@ func (r *RedisRateLimiter) TokenAccess(sessionId string, accessKey string) bool 
 
 	key := sessionId + accessKey
 
-	tmp := make([]interface{}, 0)
+	tmp := make([]string, 0)
 	for _, rule := range rules {
-		tmp = append(tmp, rule.Duration)
-		tmp = append(tmp, rule.Limit)
+		tmp = append(tmp, strconv.Itoa(int(rule.Duration)))
+		tmp = append(tmp, strconv.Itoa(int(rule.Limit)))
 	}
 	return r.tokenAccess(key, tmp...)
 }
@@ -147,18 +147,18 @@ func (r *RedisRateLimiter) TokenAccess(sessionId string, accessKey string) bool 
 func (r *RedisRateLimiter) TokenAccessWithRules(sessionId, accessKey string, rules ...Rule) bool {
 	key := sessionId + accessKey
 
-	tmp := make([]interface{}, 0)
+	tmp := make([]string, 0)
 	for _, rule := range rules {
-		tmp = append(tmp, rule.Duration)
-		tmp = append(tmp, rule.Limit)
+		tmp = append(tmp, strconv.Itoa(int(rule.Duration)))
+		tmp = append(tmp, strconv.Itoa(int(rule.Limit)))
 	}
 	return r.tokenAccess(key, tmp...)
 }
 
-func (r *RedisRateLimiter) tokenAccess(key string, rules ...interface{}) bool {
+func (r *RedisRateLimiter) tokenAccess(key string, rules ...string) bool {
 	keys := []string{key, strconv.FormatInt(time.Now().UnixNano(), 10), strconv.Itoa(len(rules))}
-
-	val, err := r.conn.EvalSha(r.scriptSha, keys, rules...).Int()
+	keys = append(keys, rules...)
+	val, err := r.conn.EvalSha(r.scriptSha, keys).Int()
 	if err != nil {
 		return false
 	}
