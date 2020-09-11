@@ -29,22 +29,25 @@ local limits = {}
 
 local j = 1
 for i=3, N*3+2, 3 do
-	durations[j] = tonumber(KEYS[i+1])
-	limits[j] = tonumber(KEYS[i+2])
+	local k =i+1
+	durations[j] = tonumber(KEYS[k])
+	k = k+1
+	limits[j] = tonumber(KEYS[k])
 	j = j+1
 end
 j = j-1
 
 -- 遍历每一条规则，判断是否还有token剩余，是否满足重新补充的条件
 for i=1, N, 1 do
-	local ratelimit_info=redis.pcall("HMGET",KEYS[i*3],"remain_token","last_fill_time")
+	local j = i*3
+	local ratelimit_info=redis.pcall("HMGET",KEYS[j],"remain_token","last_fill_time")
 	remains[i] = tonumber(ratelimit_info[1])
 	lastTimes[i] = tonumber(ratelimit_info[2])
 
 	-- 之前不存在，创建，并设置过期为一小时
 	if (lastTimes[i]==nil) then
-    	redis.call("HMSET",KEYS[i*3],"remain_token",limits[i],"last_fill_time",time_now)
-    	redis.call("EXPIRE", KEYS[i*3], 3600)
+    	redis.call("HMSET",KEYS[j],"remain_token",limits[i],"last_fill_time",time_now)
+    	redis.call("EXPIRE", KEYS[j], 3600)
     	lastTimes[i] = time_now
     	remains[i] = limits[i]
 	end
@@ -70,7 +73,8 @@ end
 
 -- 对每一条规则减去一个token，并返回成功
 for i=1, N, 1 do
-	redis.pcall("HMSET", KEYS[i*3],"remain_token",remains[i]-1,"last_fill_time",lastTimes[i])
+	local j = i*3
+	redis.pcall("HMSET", KEYS[j],"remain_token",remains[i]-1,"last_fill_time",lastTimes[i])
 end
 
 return 1
